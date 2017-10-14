@@ -14,7 +14,7 @@ from mfpoincare import MFPoincare
 dim = 16
 n_epochs = 2
 batchsize = 4096
-model_type = 'MFPoly2'
+model_type = 'MF'
 fn = model_type + '_checkpoint'
 
 n_items = np.load('full.npz')['n_items'].tolist()
@@ -45,8 +45,8 @@ elif model_type == 'MFPoly2':
     test_args = (test_user, test_item, test_uage, test_like)
 elif model_type == 'MFPoincare':
     model = MFPoincare(n_users, n_items, dim, n_obs)
-    train_args = (train_user, train_item, train_uage, train_like)
-    test_args = (test_user, test_item, test_uage, test_like)
+    train_args = (train_user, train_item, train_like)
+    test_args = (test_user, test_item, test_like)
 optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
 # Reload model if desired

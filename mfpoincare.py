@@ -17,11 +17,10 @@ class BiasedEmbedding(nn.Module):
 
 
 class MFPoincare(nn.Module):
-    def __init__(self, n_users, n_items, n_dim, n_obs, lub=1.,
-                 lib=1., luv=1., liv=1.):
+    def __init__(self, n_users, n_items, n_dim, n_obs):
         super(MFPoincare, self).__init__()
-        self.embed_user = BiasedEmbedding(n_users, n_dim, lb=lub, lv=luv)
-        self.embed_item = BiasedEmbedding(n_items, n_dim, lb=lib, lv=liv)
+        self.embed_user = BiasedEmbedding(n_users, n_dim)
+        self.embed_item = BiasedEmbedding(n_items, n_dim)
         self.glob_bias = Parameter(torch.Tensor(1, 1))
         self.n_obs = n_obs
 
