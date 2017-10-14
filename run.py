@@ -9,6 +9,7 @@ from trainer import Trainer
 from callbacks import auc_callback
 
 dim = 16
+batchsize = 4096
 model_type = 'MF'
 
 n_items = np.load('full.npz')['n_items'].tolist()
@@ -28,7 +29,8 @@ test_like = np.load('test.npz')['like'].astype('float32')
 
 callbacks = {'auc': auc_callback}
 if model_type == 'MF':
-    model = MF(n_users, n_items, dim, n_obs)
+    model = MF(n_users, n_items, dim, n_obs, reg_user_bas=1e-3,
+               reg_user_vec=1e-3, reg_item_bas=1e-3, reg_item_vec=1e-3)
     train_args = (train_user, train_item, train_like)
     test_args = (test_user, test_item, test_like)
 elif model_type == 'MFPoly2':
@@ -40,7 +42,8 @@ optimizer = optim.Adam(model.parameters(), lr=1e-3)
 # Reload model if desired
 if os.path.exists('checkpoint'):
     model.load_state_dict(torch.load("checkpoint"))
-t = Trainer(model, optimizer, callbacks=callbacks, seed=seed)
+t = Trainer(model, optimizer, batchsize=batchsize,
+            callbacks=callbacks, seed=seed)
 for epoch in range(10):
     t.fit(*train_args)
     t.test(*test_args)

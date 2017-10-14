@@ -56,8 +56,10 @@ class Trainer(object):
         # args is X1, X2...Xn, Y
         # Where Xs are features, Y is the outcome
         for batch in chunks(self.batchsize, *args):
+            target = batch[-1]
             pred = self.model.forward(*batch[:-1])
-            self.run_callbacks(batch, pred, train=False)
+            loss = self.model.loss(pred, target)
+            self.run_callbacks(batch, pred, train=False, loss=loss.data[0])
             if self._iteration % self.print_every == 0:
                 self.print_log(header=self._iteration == 0)
 
