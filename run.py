@@ -8,11 +8,13 @@ from trainer import Trainer
 from callbacks import auc_callback
 from mf import MF
 from mfpoly2 import MFPoly2
+from mfpoincare import MFPoincare
+
 
 dim = 16
-n_epochs = 50
+n_epochs = 2
 batchsize = 4096
-model_type = 'MF'
+model_type = 'MFPoly2'
 fn = model_type + '_checkpoint'
 
 n_items = np.load('full.npz')['n_items'].tolist()
@@ -37,8 +39,12 @@ if model_type == 'MF':
     train_args = (train_user, train_item, train_like)
     test_args = (test_user, test_item, test_like)
 elif model_type == 'MFPoly2':
-    model = MFPoly2(n_users, n_items, dim, n_obs, reg_user_bas=1e-3,
-                    reg_user_vec=1e-3, reg_item_bas=1e-3, reg_item_vec=1e-3)
+    model = MFPoly2(n_users, n_items, dim, n_obs, luv=1e-3,
+                    lub=1e-3, liv=1e-3, lib=1e-3)
+    train_args = (train_user, train_item, train_uage, train_like)
+    test_args = (test_user, test_item, test_uage, test_like)
+elif model_type == 'MFPoincare':
+    model = MFPoincare(n_users, n_items, dim, n_obs)
     train_args = (train_user, train_item, train_uage, train_like)
     test_args = (test_user, test_item, test_uage, test_like)
 optimizer = optim.Adam(model.parameters(), lr=1e-3)
