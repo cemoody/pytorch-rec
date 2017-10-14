@@ -9,9 +9,9 @@ from trainer import Trainer
 from callbacks import auc_callback
 
 dim = 16
-n_epochs = 40
+n_epochs = 2
 batchsize = 4096
-model_type = 'MF'
+model_type = 'MFPoly2'
 fn = model_type + '_checkpoint'
 
 n_items = np.load('full.npz')['n_items'].tolist()
@@ -54,7 +54,7 @@ for epoch in range(n_epochs):
     torch.save(model.state_dict(), fn)
 
 # Output vectors
-np.savez("model", user_bas=model.user_bas.weight.data,
-         user_vec=model.user_vec.weight.data,
-         item_bas=model.item_bas.weight.data,
-         item_vec=model.item_vec.weight.data)
+np.savez("model", user_bas=model.user_bas.weight.data.numpy(),
+         user_vec=model.user_vec.weight.data.numpy(),
+         item_bas=model.item_bas.weight.data.numpy(),
+         item_vec=model.item_vec.weight.data.numpy())
