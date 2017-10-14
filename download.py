@@ -31,6 +31,9 @@ def run():
     item = df.style_variant_id_code.values.astype('int64')
     user = df.client_id_code.values.astype('int64')
     uage = df.age.values.astype('float64')
+    # Replace missing age with mean age
+    idx = np.isfinite(uage)
+    uage[~idx] = uage[idx].mean()
     like = df.is_liked.values.astype('float32')
     ret = train_test_split(item, user, uage, like, random_state=seed)
     (train_item, test_item, train_user, test_user,

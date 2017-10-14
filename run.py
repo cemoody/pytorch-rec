@@ -9,8 +9,10 @@ from trainer import Trainer
 from callbacks import auc_callback
 
 dim = 16
+n_epochs = 40
 batchsize = 4096
 model_type = 'MF'
+fn = model_type + '_checkpoint'
 
 n_items = np.load('full.npz')['n_items'].tolist()
 n_users = np.load('full.npz')['n_users'].tolist()
@@ -34,21 +36,22 @@ if model_type == 'MF':
     train_args = (train_user, train_item, train_like)
     test_args = (test_user, test_item, test_like)
 elif model_type == 'MFPoly2':
-    model = MFPoly2(n_users, n_items, dim, n_obs, seed=seed)
+    model = MFPoly2(n_users, n_items, dim, n_obs, reg_user_bas=1e-3,
+                    reg_user_vec=1e-3, reg_item_bas=1e-3, reg_item_vec=1e-3)
     train_args = (train_user, train_item, train_uage, train_like)
     test_args = (test_user, test_item, test_uage, test_like)
 optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
 # Reload model if desired
-if os.path.exists('checkpoint'):
-    model.load_state_dict(torch.load("checkpoint"))
+if os.path.exists(fn):
+    model.load_state_dict(torch.load(fn))
 t = Trainer(model, optimizer, batchsize=batchsize,
             callbacks=callbacks, seed=seed)
-for epoch in range(10):
+for epoch in range(n_epochs):
     t.fit(*train_args)
     t.test(*test_args)
     t.print_summary()
-    torch.save(model.state_dict(), "checkpoint")
+    torch.save(model.state_dict(), fn)
 
 # Output vectors
 np.savez("model", user_bas=model.user_bas.weight.data,

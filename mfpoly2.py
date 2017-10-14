@@ -22,17 +22,22 @@ class MFPoly2(nn.Module):
         self.age1 = nn.Linear(1, 1)
         self.age2 = nn.Linear(1, 1)
         self.n_obs = n_obs
+        self.reg_user_bas = reg_user_bas
+        self.reg_user_vec = reg_user_vec
+        self.reg_item_bas = reg_item_bas
+        self.reg_item_vec = reg_item_vec
 
     def forward(self, user_idx, item_idx, age):
         batchsize = len(user_idx)
-        glob_bas = self.glob_bas.expand(batchsize)
+        glob_bas = self.glob_bas.expand(batchsize, 1).squeeze()
         user_bas = self.user_bas(user_idx).squeeze()
         item_bas = self.item_bas(item_idx).squeeze()
         user_vec = self.user_vec(user_idx)
         item_vec = self.item_vec(item_idx)
         intx = (user_vec * item_vec).sum(dim=1)
-        age_effect = self.age2(self.age1(age))
+        age_effect = self.age2(self.age1(age.view(batchsize, 1))).squeeze()
         score = glob_bas + user_bas + item_bas + intx + age_effect
+        import pdb; pdb.set_trace()
         return score
 
     def loss(self, prediction, target):
@@ -41,6 +46,6 @@ class MFPoly2(nn.Module):
                  self.item_bas.weight.sum()**2. * self.reg_item_bas +
                  self.user_vec.weight.sum()**2. * self.reg_user_vec +
                  self.item_vec.weight.sum()**2. * self.reg_item_vec)
-        n_minibatches = self.n_obs * 1.0 / target.shape[0]
+        n_minibatches = self.n_obs * 1.0 / target.size()[0]
         prior_weighted = prior / n_minibatches
         return llh + prior_weighted
