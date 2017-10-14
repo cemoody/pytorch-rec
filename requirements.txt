@@ -1,0 +1,7 @@
+torchvision
+sklearn
+pandas
+numpy
+scipy
+pyhive
+requests
