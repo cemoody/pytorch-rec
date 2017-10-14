@@ -18,7 +18,7 @@ def chunks(batchsize, *arrs):
 
 class Trainer(object):
     def __init__(self, model, optimizer, callbacks={}, seed=42,
-                 print_every=25, batchsize=2048):
+                 print_every=25, batchsize=2048, window=500):
         self.model = model
         self.optimizer = optimizer
         self.callbacks = callbacks
@@ -29,6 +29,7 @@ class Trainer(object):
         self.seed = seed
         self.print_every = print_every
         self.batchsize = batchsize
+        self.window = window
 
     def fit(self, *args):
         # args is X1, X2,...Xn, Yn
@@ -74,7 +75,7 @@ class Trainer(object):
 
     def print_log(self, header=False):
         logs = pd.DataFrame(self.log).sort_values('timestamp')
-        roll = logs.rolling(window=500).mean().reset_index()
+        roll = logs.rolling(window=self.window).mean().reset_index()
         logs = logs.reset_index()
         concat = logs.merge(roll, how='left', on='index',
                             suffixes=('', '_rolling'))

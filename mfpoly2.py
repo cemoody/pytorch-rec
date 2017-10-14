@@ -37,7 +37,6 @@ class MFPoly2(nn.Module):
         intx = (user_vec * item_vec).sum(dim=1)
         age_effect = self.age2(self.age1(age.view(batchsize, 1))).squeeze()
         score = glob_bas + user_bas + item_bas + intx + age_effect
-        import pdb; pdb.set_trace()
         return score
 
     def loss(self, prediction, target):
