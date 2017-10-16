@@ -29,7 +29,8 @@ class PoincareDistance(Function):
         beta = 1. - l2(x)
         gamma = 1 + 2 * norm / alpha / beta
         ret = arccosh(gamma)
-        self.save_for_backward(t, x, alpha, beta, gamma)
+        self.save_for_backward(t, x)
+        self.saved_args = (alpha, beta, gamma)
         return ret
 
     def ddistdt(sefl, t, x, alpha, beta, gamma):
@@ -40,7 +41,8 @@ class PoincareDistance(Function):
 
     def backward(self, grad_output):
         # Return gradient for u & v
-        t, x, alpha, beta, gamma = self.saved_tensors
+        t, x = self.saved_tensors
+        alpha, beta, gamma = self.saved_args
         dddt = self.ddistdt(t, x, alpha, beta, gamma)
         dddx = self.ddistdt(x, t, alpha, beta, gamma)
         grad_t = alpha * alpha * dddt
