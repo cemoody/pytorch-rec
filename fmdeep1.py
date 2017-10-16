@@ -19,23 +19,26 @@ class FMDeep1(nn.Module):
         self.feat_bias = nn.Embedding(n_features, 1)
         self.feat_vect = nn.Embedding(n_features, n_dim)
         self.glob_bias = Parameter(torch.Tensor(1, 1))
+        self.layer_norm0 = LayerNorm(n_dim)
         self.layer_norm1 = LayerNorm(n_dim)
         self.layer_norm2 = LayerNorm(n_dim)
         self.lin1 = nn.Linear(n_dim, n_dim)
-        self.lin2 = nn.Linear(n_dim, n_dim)
+        self.lin2 = nn.Linear(n_dim, 1)
         self.n_obs = n_obs
+        self.lb = lb
+        self.lv = lv
 
     def forward(self, idx):
         biases = index_into(self.feat_bias.weight, idx).squeeze()
-        vectrs = index_into(self.feat_vect.weight, idx)
-        x0 = factorization_machine(vectrs).squeeze()
-        x1 = x0 + self.lin1(self.layer_norm1(x0))
-        x2 = x1 + self.lin2(self.layer_norm2(x1))
-        logodds = biases.sum(dim=1) + x2.sum(dim=1)
+        vectrs = self.layer_norm0(index_into(self.feat_vect.weight, idx))
+        x0 = self.layer_norm1(factorization_machine(vectrs))
+        x1 = self.layer_norm2(self.lin1(x0))
+        x2 = self.lin2(x1)
+        logodds = biases.sum(dim=1) + x2.squeeze()
         return logodds
 
     def prior(self):
-        loss = ((self.feat_bias.weight**2.0).sum() * self.lb
+        loss = ((self.feat_bias.weight**2.0).sum() * self.lb +
                 (self.feat_vect.weight**2.0).sum() * self.lv)
         return loss
 

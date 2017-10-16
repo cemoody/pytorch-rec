@@ -11,14 +11,15 @@ from fm import FM
 from mf import MF
 from fmdeep1 import FMDeep1
 from mfpoly2 import MFPoly2
+from mfdeep1 import MFDeep1
 from mfpoincare import MFPoincare
 
 
 dim = 16
 n_epochs = 40
 batchsize = 4096
-model_type = 'FM'
-learning_rate = 1e-2  # 1e-3 is standard
+model_type = 'MF'
+learning_rate = 1e-3  # 1e-3 is standard
 fn = model_type + '_checkpoint'
 
 n_items = np.load('full.npz')['n_items'].tolist()
@@ -53,20 +54,25 @@ elif model_type == 'MFPoly2':
                     lub=1e-3, liv=1e-3, lib=1e-3)
     train_args = (train_user, train_item, train_uage, train_like)
     test_args = (test_user, test_item, test_uage, test_like)
+elif model_type == 'MFDeep1':
+    model = MFDeep1(n_users, n_items, dim, n_obs, luv=1e-3,
+                    lub=1e-3, liv=1e-3, lib=1e-3)
+    train_args = (train_user, train_item, train_like)
+    test_args = (test_user, test_item, test_like)
 elif model_type == 'MFPoincare':
     model = MFPoincare(n_users, n_items, dim, n_obs)
     train_args = (train_user, train_item, train_like)
     test_args = (test_user, test_item, test_like)
 elif model_type == 'FM':
     n_feat = n_items + n_users + n_colr
-    model = FM(n_feat, dim * 4, n_obs, lb=1e-6, lv=1e-6)
+    model = FM(n_feat, dim, n_obs, lb=1e-6, lv=1e-6)
     train_args = (train_feat, train_like)
     test_args = (test_feat, test_like)
 elif model_type == 'FMDeep1':
     n_feat = n_items + n_users + n_colr
-    model = FMDeep1(n_feat, dim, n_obs)
-    train_args = (train_feat, train_like)
-    test_args = (test_feat, test_like)
+    model = FMDeep1(n_feat, dim, n_obs, lb=1e-3, lv=1e-3)
+    train_args = (train_feat[:, :2], train_like)
+    test_args = (test_feat[:, :2], test_like)
 
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
