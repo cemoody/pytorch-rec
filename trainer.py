@@ -35,7 +35,7 @@ class Trainer(object):
     def fit(self, *args):
         # args is X1, X2,...Xn, Yn
         self._iteration = 0
-        args = shuffle(*args, random_state=self.seed)
+        args = shuffle(*args, random_state=self.seed + self._epoch)
         for batch in chunks(self.batchsize, *args):
             start = time.time()
             target = batch[-1]
