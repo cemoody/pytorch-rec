@@ -16,6 +16,16 @@ def chunks(batchsize, *arrs):
         yield [Variable(torch.from_numpy(arr[i:i + n])) for arr in arrs]
 
 
+def chunk_shuffle(batchsize, *arrs):
+    n = batchsize
+    lens = [arr.shape[0] for arr in arrs]
+    err = "Not all arrays are of same shape"
+    length = lens[0]
+    assert all(length == l for l in lens), err
+    for i in range(0, length, n):
+        yield [Variable(torch.from_numpy(arr[i:i + n])) for arr in arrs]
+
+
 class Trainer(object):
     def __init__(self, model, optimizer, callbacks={}, seed=42,
                  print_every=25, batchsize=2048, window=500, clip=None):
@@ -49,6 +59,33 @@ class Trainer(object):
             self.optimizer.step()
             stop = time.time()
             self.run_callbacks(batch, pred, loss=loss.data[0],
+                               train=True, iter_time=stop-start)
+            if self._iteration % self.print_every == 0:
+                self.print_log(header=self._iteration == 0)
+            self._iteration += 1
+        self._epoch += 1
+        self.previous_log.extend(self.log)
+        self.log = []
+
+    def fit_sequence(self, inputs, labels, lengths):
+        args = (inputs, labels, lengths)
+        for input, label, length in chunk_shuffle(self.batchsize, *args):
+            start = time.time()
+            for frame in range(length.max()):
+                self.optimizer.zero_grad()
+                input_frame = input[:, frame]
+                label_frame = label[:, frame]
+                pred_frame = self.model.forward(input_frame)
+                loss = self.model.loss(pred_frame, label_frame)
+                loss.backward()
+                if self.clip:
+                    torch.nn.utils.clip_grad_norm(self.model.parameters(),
+                                                  self.clip)
+                self.optimizer.step()
+            stop = time.time()
+            # We estimate AUC just on the last item
+            self.run_callbacks([input_frame, label_frame], pred_frame,
+                               loss=loss.data[0],
                                train=True, iter_time=stop-start)
             if self._iteration % self.print_every == 0:
                 self.print_log(header=self._iteration == 0)

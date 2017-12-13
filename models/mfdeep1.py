@@ -3,8 +3,7 @@ from torch import nn
 import torch.nn.functional as F
 from torch.nn.parameter import Parameter
 
-from layernorm import LayerNorm
-from biased_embedding import BiasedEmbedding
+from models.biased_embedding import BiasedEmbedding
 
 # Exactly the same as the MFClassic model, but arguably
 # cleaner code
@@ -16,9 +15,6 @@ class MFDeep1(nn.Module):
         super(MFDeep1, self).__init__()
         self.embed_user = BiasedEmbedding(n_users, n_dim, lb=lub, lv=luv)
         self.embed_item = BiasedEmbedding(n_items, n_dim, lb=lib, lv=liv)
-        self.layer_norm0 = LayerNorm(n_dim)
-        self.layer_norm1 = LayerNorm(n_dim)
-        self.layer_norm2 = LayerNorm(n_dim)
         self.lin1 = nn.Linear(n_dim, n_dim)
         self.lin2 = nn.Linear(n_dim, 1)
         self.glob_bias = Parameter(torch.Tensor(1, 1))

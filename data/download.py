@@ -52,13 +52,14 @@ def process_ratings():
     ratings = pd.read_csv(base + '/ratings.csv')
     movies, genr_cols = process_movies()
     ratings = ratings.merge(movies, on='movieId')
+    ratings['movieId_dense'] = pd.Categorical(ratings.movieId).codes
     return ratings, genr_cols
 
 
 def extract():
     ratings, genr_cols = process_ratings()
     n_user = ratings.userId.max() + 1
-    n_item = ratings.movieId.max() + 1
+    n_item = ratings.movieId_dense.max() + 1
     n_genr = len(genr_cols)
     n_obs = len(ratings)
 
@@ -68,7 +69,7 @@ def extract():
     # factorization machines, which represent the input with a shared index
     # Zero in any case will correspond with empty or missing
     ratings['user_code'] = ratings.userId
-    ratings['item_code'] = ratings.movieId + ratings.user_code.max() + 1
+    ratings['item_code'] = ratings.movieId_dense + ratings.user_code.max() + 1
     genr_cols_code = [col + '_code' for col in genr_cols]
     im = ratings.item_code.max()
     for col, col_code in zip(genr_cols, genr_cols_code):
@@ -89,7 +90,7 @@ def extract():
     code_to_key = {}
     for user_code, userId in zip(ratings.user_code, ratings.userId):
         code_to_key[user_code] = ('user', userId)
-    for item_code, movieId in zip(ratings.item_code, ratings.movieId):
+    for item_code, movieId in zip(ratings.item_code, ratings.movieId_dense):
         code_to_key[item_code] = ('item', movieId)
     for col in genr_cols:
         for genr_code, genr in zip(ratings[col + '_code'], ratings[col]):
@@ -107,6 +108,7 @@ def extract():
 def loocv():
     # Build train, test sets
     ratings, genr_cols_code = extract()
+    import pdb; pdb.set_trace()
     train, test = train_test_split(ratings, random_state=seed)
 
     train_user = train.user_code.values
@@ -174,5 +176,7 @@ def history():
 
 
 if __name__ == '__main__':
-    history()
+    print("loocv")
     loocv()
+    print("history")
+    history()

@@ -3,10 +3,7 @@ from torch import nn
 import torch.nn.functional as F
 from torch.nn.parameter import Parameter
 
-from biased_embedding import BiasedEmbedding
-
-# Exactly the same as the MFClassic model, but arguably
-# cleaner code
+from models.biased_embedding import BiasedEmbedding
 
 
 class MF(nn.Module):
