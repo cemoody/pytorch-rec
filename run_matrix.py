@@ -12,9 +12,9 @@ from models.mf import MF
 from models.mfdeep1 import MFDeep1
 
 
-dim = 16
+dim = 32
 n_epochs = 40
-batchsize = 4096
+batchsize = 4096 * 8
 model_type = 'MFDeep1'
 learning_rate = 1e-3
 fn = model_type + '_checkpoint'
@@ -67,9 +67,9 @@ if os.path.exists(fn):
 t = Trainer(model, optimizer, batchsize=batchsize,
             callbacks=callbacks, seed=seed)
 for epoch in range(n_epochs):
-    model.is_train = True
+    model.train(True)
     t.fit(*train_args)
-    model.is_train = False
+    model.train(False)
     t.test(*test_args)
     t.print_summary()
     torch.save(model.state_dict(), fn)

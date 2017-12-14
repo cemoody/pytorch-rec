@@ -5,8 +5,11 @@ from torch.nn.parameter import Parameter
 
 from models.variational_biased_embedding import VariationalBiasedEmbedding
 
-# Exactly the same as the MFClassic model, but arguably
-# cleaner code
+
+def selu(x):
+    alpha = 1.6732632423543772848170429916717
+    scale = 1.0507009873554804934193349852946
+    return scale * F.elu(x, alpha)
 
 
 class MFDeep1(nn.Module):
@@ -19,20 +22,26 @@ class MFDeep1(nn.Module):
                                                      lv=luv, n_obs=n_obs)
         self.embed_item = VariationalBiasedEmbedding(n_items, n_dim, lb=lib,
                                                      lv=liv, n_obs=n_obs)
-        self.lin1 = nn.Linear(n_dim * 3, n_dim)
-        self.lin2 = nn.Linear(n_dim, 1)
+        self.lin1 = nn.Linear(n_dim, n_dim)
+        self.lin2 = nn.Linear(n_dim * 3, 2)
         self.glob_bias = Parameter(torch.Tensor(1, 1))
         self.n_obs = n_obs
         self.lossf = loss()
+        self.ad1 = nn.AlphaDropout(p=0.1)
+        self.ad2 = nn.AlphaDropout(p=0.1)
+        self.lin1.weight.data *= 1e-9
+        self.glob_bias.data[:] = 0.3
 
     def forward(self, u, i):
         bias = self.glob_bias.expand(len(u), 1).squeeze()
         bu, vu = self.embed_user(u)
         bi, vi = self.embed_item(i)
-        x0 = torch.cat((vu, vi, vu * vi), dim=1)
-        x1 = F.dropout(self.lin1(x0), self.is_train)
-        x2 = self.lin2(x1).squeeze()
-        logodds = bias + bi + bu + x2
+        # x0 = torch.cat(vu * vi, dim=1)
+        x0 = vu * vi
+        x1 = self.ad1(selu(self.lin1(x0)))
+        # x2 = self.ad2(selu(self.lin2(x1)))
+        # x2 = x2.sum(dim=1).squeeze()
+        logodds = bias + bi + bu + x0.sum(dim=1) + x1.sum(dim=1)
         return logodds
 
     def loss(self, prediction, target):
