@@ -16,7 +16,7 @@ dim = 32
 n_epochs = 40
 batchsize = 4096 * 8
 model_type = 'MFDeep1'
-learning_rate = 1e-3
+learning_rate = 1e-2
 fn = model_type + '_checkpoint'
 
 
