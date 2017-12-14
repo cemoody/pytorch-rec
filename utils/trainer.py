@@ -45,7 +45,7 @@ class Trainer(object):
     def fit(self, *args):
         # args is X1, X2,...Xn, Yn
         self._iteration = 0
-        args = shuffle(*args, random_state=self.seed + self._epoch)
+        args = shuffle(*args)  # , random_state=self.seed + self._epoch)
         for batch in chunks(self.batchsize, *args):
             start = time.time()
             target = batch[-1]
@@ -98,6 +98,7 @@ class Trainer(object):
         # args is X1, X2...Xn, Y
         # Where Xs are features, Y is the outcome
         self._iteration = 0
+        self.optimizer.zero_grad()
         for batch in chunks(self.batchsize, *args):
             target = batch[-1]
             pred = self.model.forward(*batch[:-1])
@@ -106,7 +107,10 @@ class Trainer(object):
             if self._iteration % self.print_every == 0:
                 self.print_log(header=self._iteration == 0)
             self._iteration += 1
+        self.optimizer.zero_grad()
         self._iteration = 0
+        self.previous_log.extend(self.log)
+        self.log = []
 
     def run_callbacks(self, batch, pred, **kwargs):
         vals = {name: cb(batch, self.model, pred)

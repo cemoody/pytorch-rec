@@ -16,6 +16,6 @@ class BiasedEmbedding(nn.Module):
         return self.bias(index).squeeze(), self.vect(index)
 
     def prior(self):
-        loss = (self.vect.weight.sum()**2.0 * self.lv +
-                self.bias.weight.sum()**2.0 * self.lb)
+        loss = ((self.vect.weight**2.0).sum() * self.lv +
+                (self.bias.weight**2.0).sum() * self.lb)
         return loss
