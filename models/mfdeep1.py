@@ -17,7 +17,8 @@ class MFDeep1(nn.Module):
     is_train = True
 
     def __init__(self, n_users, n_items, n_dim, n_obs, lub=1.,
-                 lib=1., luv=1., liv=1., loss=nn.MSELoss(size_average=True)):
+                 lib=1., luv=1., liv=1., lmat=1.0,
+                 loss=nn.MSELoss(size_average=False)):
         super(MFDeep1, self).__init__()
         self.embed_user = VariationalBiasedEmbedding(n_users, n_dim, lb=lub,
                                                      lv=luv, n_obs=n_obs)
@@ -29,14 +30,16 @@ class MFDeep1(nn.Module):
         self.n_obs = n_obs
         self.lossf = loss
         self.lin1.weight.data
+        self.lmat = lmat
         self.glob_bias.data[:] = 1e-6
 
     def forward(self, u, i):
         bias = self.glob_bias.expand(len(u), 1).squeeze()
         bu, vu = self.embed_user(u)
         bi, vi = self.embed_item(i)
-        x1 = self.lin1(vu) * self.lin2(vi)
-        logodds = bias + bi + bu + x1.sum(dim=1)  # + x0.sum(dim=1)
+        x1 = vu * self.lin1(vi)
+        x2 = selu(self.lin2(x1))
+        logodds = bias + bi + bu + x2.sum(dim=1)  # + x0.sum(dim=1)
         return logodds
 
     def loss(self, prediction, target):
@@ -46,8 +49,8 @@ class MFDeep1(nn.Module):
         mat2 = self.lin2.weight @ torch.t(self.lin2.weight)
         eye1 = Variable(torch.eye(*mat1.size()))
         eye2 = Variable(torch.eye(*mat2.size()))
-        diff1 = ((mat1 - eye1)**2.0).sum()
-        diff2 = ((mat2 - eye2)**2.0).sum()
+        diff1 = ((mat1 - eye1)**2.0).sum() * self.lmat
+        diff2 = ((mat2 - eye2)**2.0).sum() * self.lmat
         reg = (diff1 + diff2 + self.embed_user.prior() +
                self.embed_item.prior())
         return llh + reg / n_batches

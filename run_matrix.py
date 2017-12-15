@@ -16,7 +16,7 @@ dim = 32
 n_epochs = 40
 batchsize = 4096 * 8
 model_type = 'MFDeep1'
-learning_rate = 1e-2
+learning_rate = 1e-3
 fn = model_type + '_checkpoint'
 
 
@@ -44,8 +44,8 @@ if model_type == 'MF':
     user, item = test_feat[:, 0], test_feat[:, 1] - n_user
     test_args = (user, item, test_scor)
 elif model_type == 'MFDeep1':
-    model = MFDeep1(n_user, n_item, dim, n_obs, luv=1e-6,
-                    lub=1e-6, liv=1e-6, lib=1e-6)
+    model = MFDeep1(n_user, n_item, dim, n_obs, luv=1.0,
+                    lub=1, liv=1, lib=1, lmat=1.0)
     # The first two columns give user and item indices
     user, item = train_feat[:, 0], train_feat[:, 1] - n_user
     train_args = (user, item, train_scor)

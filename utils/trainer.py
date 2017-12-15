@@ -1,4 +1,5 @@
 import time
+import random
 import pandas as pd
 
 import torch
@@ -45,7 +46,9 @@ class Trainer(object):
     def fit(self, *args):
         # args is X1, X2,...Xn, Yn
         self._iteration = 0
-        args = shuffle(*args)  # , random_state=self.seed + self._epoch)
+        rs = random.randint(0, 100000)
+        args = shuffle(*args, random_state=rs)
+        # , random_state=self.seed + self._epoch)
         for batch in chunks(self.batchsize, *args):
             start = time.time()
             target = batch[-1]
