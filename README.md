@@ -15,7 +15,7 @@ Included factorization models:
   3. MFPoincare. Matrix factorization in Poincare (instead of Euclidean) space
   4. SparseMF.
 
-Included autoencoder models:
+Included graph autoencoder models:
     1. SimpleAE
     2. LSTMAE
     3. ActiveAE

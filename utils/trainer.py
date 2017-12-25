@@ -55,14 +55,20 @@ class Trainer(object):
             self.optimizer.zero_grad()
             pred = self.model.forward(*batch[:-1])
             loss = self.model.loss(pred, target)
-            loss.backward()
+            scalar = sum(loss)
+            scalar.backward()
+            grad_norm = max(p.grad.data.abs().max()
+                            for p in self.model.parameters()
+                            if p.grad is not None)
             if self.clip:
                 torch.nn.utils.clip_grad_norm(self.model.parameters(),
                                               self.clip)
             self.optimizer.step()
             stop = time.time()
-            self.run_callbacks(batch, pred, loss=loss.data[0],
-                               train=True, iter_time=stop-start)
+            kwargs = {f'loss_{i}': l.data[0] for i, l in enumerate(loss)}
+            kwargs['grad_norm_max'] = grad_norm
+            self.run_callbacks(batch, pred, train=True, iter_time=stop-start,
+                               **kwargs)
             if self._iteration % self.print_every == 0:
                 self.print_log(header=self._iteration == 0)
             self._iteration += 1
@@ -106,7 +112,9 @@ class Trainer(object):
             target = batch[-1]
             pred = self.model.forward(*batch[:-1])
             loss = self.model.loss(pred, target)
-            self.run_callbacks(batch, pred, train=False, loss=loss.data[0])
+            scalar = sum(loss)
+            scalar.backward()
+            self.run_callbacks(batch, pred, train=False, loss=scalar.data[0])
             if self._iteration % self.print_every == 0:
                 self.print_log(header=self._iteration == 0)
             self._iteration += 1

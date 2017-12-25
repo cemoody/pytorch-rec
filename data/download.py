@@ -9,12 +9,13 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 
 seed = 42
-name = 'ml-20m.zip'
-base = 'ml-20m'
+name = 'ml-10m.zip'
+base = 'ml-10M100K'
 
 
 def process_movies():
-    movies = pd.read_csv(base + '/movies.csv', delimiter=',')
+    cols = ['movieId', 'title', 'genres']
+    movies = pd.read_csv(base + '/movies.dat', delimiter='::', names=cols)
     # Genres column is pipe-seperated
     sets = (movies.genres
                   .apply(lambda x: set(x.split('|')))
@@ -45,11 +46,13 @@ def process_ratings():
         r = requests.get(url)
         with open(name, 'wb') as fh:
             fh.write(r.content)
+    if os.path.exists(name):
         zipf = ZipFile(name)
         zipf.extractall()
 
     # First col is user, 2nd is movie id, 3rd is rating, 4th timestamp
-    ratings = pd.read_csv(base + '/ratings.csv')
+    cols = ['userId', 'movieId', 'rating', 'timestamp']
+    ratings = pd.read_csv(base + '/ratings.dat', delimiter='::', names=cols)
     movies, genr_cols = process_movies()
     ratings = ratings.merge(movies, on='movieId')
     ratings['movieId_dense'] = pd.Categorical(ratings.movieId).codes
@@ -105,11 +108,11 @@ def extract():
     return ratings, genr_cols_code
 
 
-def loocv():
+def loocv(train_size=0.75):
     # Build train, test sets
     ratings, genr_cols_code = extract()
-    import pdb; pdb.set_trace()
-    train, test = train_test_split(ratings, random_state=seed)
+    train, test = train_test_split(ratings, random_state=seed,
+                                   train_size=train_size)
 
     train_user = train.user_code.values
     train_item = train.item_code.values

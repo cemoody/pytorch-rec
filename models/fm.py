@@ -1,11 +1,7 @@
 import torch
 from torch import nn
-import torch.nn.functional as F
 from torch.nn.parameter import Parameter
 from torch.autograd import Variable
-
-# Exactly the same as the MFClassic model, but arguably
-# cleaner code
 
 
 def index_into(arr, idx):
@@ -13,28 +9,26 @@ def index_into(arr, idx):
     return arr[idx.resize(torch.numel(idx.data))].view(new_shape)
 
 
-def factorization_machine(v, x=None):
-    # Takes an input 2D matrix v of n vectors, each d-dimensional
-    # produces output that is d-dimensional
+def factorization_machine(v, w=None):
+    # Takes an input 2D matrix v that has of n vectors, each d-dimensional
+    # produces output `x` that is d-dimensional
     # v is (batchsize, n_features, dim)
-    # x is (batchsize, n_features)
-    # x functions as a weight array, assumed to be 1 if missing
+    # w is (batchsize, n_features)
+    # w functions as a weight array, assumed to be 1 if missing
     # Uses Rendle's trick for computing pairs of features in linear time
-    batchsize = v.size()[0]
-    n_features = v.size()[1]
-    n_dim = v.size()[2]
-    if x is None:
-        x = Variable(torch.ones(v.size()))
+    batchsize, n_features, n_dim = v.size()
+    if w is None:
+        w = Variable(torch.ones(v.size()))
     else:
-        x = x.expand(batchsize, n_features, n_dim)
-    t0 = (v * x).sum(dim=1)**2.0
-    t1 = (v**2.0 * x**2.0).sum(dim=1)
+        w = w.expand(batchsize, n_features, n_dim)
+    t0 = (v * w).sum(dim=1)**2.0
+    t1 = (v**2.0 * w**2.0).sum(dim=1)
     return 0.5 * (t0 - t1)
 
 
 class FM(nn.Module):
     def __init__(self, n_features, n_dim, n_obs,
-                 lb=1., lv=1.):
+                 lb=1., lv=1., loss=nn.MSELoss):
         super(FM, self).__init__()
         self.feat_bias = nn.Embedding(n_features, 1)
         self.feat_vect = nn.Embedding(n_features, n_dim)
@@ -57,6 +51,6 @@ class FM(nn.Module):
 
     def loss(self, prediction, target):
         n_batches = self.n_obs * 1.0 / target.size()[0]
-        llh = F.binary_cross_entropy_with_logits(prediction, target)
+        llh = self.lossf(prediction, target)
         reg = self.prior() / n_batches
         return llh + reg
