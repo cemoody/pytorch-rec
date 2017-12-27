@@ -51,6 +51,7 @@ class Trainer(object):
         # , random_state=self.seed + self._epoch)
         for batch in chunks(self.batchsize, *args):
             start = time.time()
+            import pdb; pdb.set_trace()
             target = batch[-1]
             self.optimizer.zero_grad()
             pred = self.model.forward(*batch[:-1])

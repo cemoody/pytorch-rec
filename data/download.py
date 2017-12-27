@@ -117,20 +117,24 @@ def loocv(train_size=0.75):
     train_user = train.user_code.values
     train_item = train.item_code.values
     train_genr = train[genr_cols_code].values
+    train_fram = train.user_frame.values
     train_scor = train.rating.values
 
     test_user = test.user_code.values
     test_item = test.item_code.values
     test_genr = test[genr_cols_code].values
+    test_fram = test.user_frame.values
     test_scor = test.rating.values
 
     # One column for user id, item id, then a column
     # for each of the 18 genre ids
     # So our input will be of shape (n_obs, 20)
     # Note that the id space is unique over all
-    train_featx = (train_user[:, None], train_item[:, None], train_genr)
+    train_featx = (train_user[:, None], train_item[:, None],
+                   train_genr, train_fram[:, None])
     train_feat = np.concatenate(train_featx, axis=1)
-    test_featx = (test_user[:, None], test_item[:, None], test_genr)
+    test_featx = (test_user[:, None], test_item[:, None],
+                  test_genr, test_fram[:, None])
     test_feat = np.concatenate(test_featx, axis=1)
 
     # Save everything

@@ -3,6 +3,8 @@ from torch import nn
 from torch.nn.parameter import Parameter
 from torch.autograd import Variable
 
+from models.biased_embedding import BiasedEmbedding
+
 
 def index_into(arr, idx):
     new_shape = (idx.size()[0], idx.size()[1], arr.size()[1])
@@ -30,27 +32,23 @@ class FM(nn.Module):
     def __init__(self, n_features, n_dim, n_obs,
                  lb=1., lv=1., loss=nn.MSELoss):
         super(FM, self).__init__()
-        self.feat_bias = nn.Embedding(n_features, 1)
-        self.feat_vect = nn.Embedding(n_features, n_dim)
-        self.glob_bias = Parameter(torch.Tensor(1, 1))
+        self.embed_feat = BiasedEmbedding(n_features, n_dim, lb=lb, lv=lv)
+        self.glob_bias = Parameter(torch.FloatTensor([0.01]))
         self.n_obs = n_obs
         self.lb = lb
         self.lv = lv
+        self.lossf = loss()
 
-    def forward(self, idx):
-        biases = index_into(self.feat_bias.weight, idx).squeeze()
-        vectrs = index_into(self.feat_vect.weight, idx)
+    def forward(self, input):
+        idx = input
+        biases = index_into(self.embed_feat.bias.weight, idx).squeeze()
+        vectrs = index_into(self.embed_feat.vect.weight, idx)
         vector = factorization_machine(vectrs).squeeze()
         logodds = biases.sum(dim=1) + vector.sum(dim=1)
         return logodds
 
-    def prior(self):
-        loss = ((self.feat_bias.weight**2.0).sum() * self.lb +
-                (self.feat_vect.weight**2.0).sum() * self.lv)
-        return loss
-
     def loss(self, prediction, target):
         n_batches = self.n_obs * 1.0 / target.size()[0]
         llh = self.lossf(prediction, target)
-        reg = self.prior() / n_batches
+        reg = self.embed_feat.prior() / n_batches
         return llh + reg

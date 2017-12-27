@@ -2,15 +2,16 @@ import torch
 from torch import nn
 from torch.nn.parameter import Parameter
 
-from models.biased_embedding import BiasedEmbedding
+from models.variational_biased_embedding \
+        import VariationalBiasedEmbedding as VBE
 
 
-class MF(nn.Module):
+class VMF(nn.Module):
     def __init__(self, n_users, n_items, n_dim, n_obs, lub=1.,
                  lib=1., luv=1., liv=1., loss=nn.MSELoss):
-        super(MF, self).__init__()
-        self.embed_user = BiasedEmbedding(n_users, n_dim, lb=lub, lv=luv)
-        self.embed_item = BiasedEmbedding(n_items, n_dim, lb=lib, lv=liv)
+        super(VMF, self).__init__()
+        self.embed_user = VBE(n_users, n_dim, lb=lub, lv=luv)
+        self.embed_item = VBE(n_items, n_dim, lb=lib, lv=liv)
         self.glob_bias = Parameter(torch.Tensor(1, 1))
         self.n_obs = n_obs
         self.lossf = loss()
