@@ -1,5 +1,6 @@
+import torch
 from torch import nn
-from torch.nn.init import xavier_normal
+from torch.nn import Parameter
 
 
 class BiasedEmbedding(nn.Module):
@@ -7,13 +8,20 @@ class BiasedEmbedding(nn.Module):
         super(BiasedEmbedding, self).__init__()
         self.vect = nn.Embedding(n_feat, n_dim)
         self.bias = nn.Embedding(n_feat, 1)
+        self.off_vect = Parameter(torch.ones(1, n_dim))
+        self.mul_vect = Parameter(torch.ones(1, n_dim))
+        self.off_bias = Parameter(torch.ones(1, 1))
+        self.mul_bias = Parameter(torch.ones(1, 1))
+        self.n_dim = n_dim
         self.lv = lv
         self.lb = lb
-        xavier_normal(self.vect.weight)
-        xavier_normal(self.bias.weight)
 
     def __call__(self, index):
-        return self.bias(index).squeeze(), self.vect(index)
+        off_vect = self.off_vect.expand(len(index), self.n_dim).squeeze()
+        off_bias = self.off_bias.expand(len(index), 1).squeeze()
+        bias = off_bias + self.mul_bias * self.bias(index).squeeze()
+        vect = off_vect + self.mul_vect * self.vect(index)
+        return bias, vect
 
     def prior(self):
         loss = ((self.vect.weight**2.0).sum() * self.lv +
