@@ -7,14 +7,25 @@ from torch.autograd import Variable
 from sklearn.utils import shuffle
 
 
-def chunks(batchsize, *arrs):
+def to_32(arr):
+    if 'int' in str(arr.dtype):
+        return arr.astype('int64')
+    else:
+        return arr.astype('float32')
+
+
+def chunks(batchsize, *arrs, cuda=False):
     n = batchsize
     lens = [arr.shape[0] for arr in arrs]
     err = "Not all arrays are of same shape"
     length = lens[0]
     assert all(length == l for l in lens), err
     for i in range(0, length, n):
-        yield [Variable(torch.from_numpy(arr[i:i + n])) for arr in arrs]
+        var = [Variable(torch.from_numpy(to_32(arr[i:i + n])))
+               for arr in arrs]
+        if cuda:
+            var = [v.cuda() for v in var]
+        yield var
 
 
 def chunk_shuffle(batchsize, *arrs):
@@ -28,7 +39,7 @@ def chunk_shuffle(batchsize, *arrs):
 
 
 class Trainer(object):
-    def __init__(self, model, optimizer, callbacks={}, seed=42,
+    def __init__(self, model, optimizer, callbacks={}, seed=42, cuda=False,
                  print_every=25, batchsize=2048, window=500, clip=None):
         self.model = model
         self.optimizer = optimizer
@@ -42,6 +53,7 @@ class Trainer(object):
         self.batchsize = batchsize
         self.window = window
         self.clip = clip
+        self.cuda = cuda
 
     def fit(self, *args):
         # args is X1, X2,...Xn, Yn
@@ -49,9 +61,8 @@ class Trainer(object):
         rs = random.randint(0, 100000)
         args = shuffle(*args, random_state=rs)
         # , random_state=self.seed + self._epoch)
-        for batch in chunks(self.batchsize, *args):
+        for batch in chunks(self.batchsize, *args, cuda=self.cuda):
             start = time.time()
-            import pdb; pdb.set_trace()
             target = batch[-1]
             self.optimizer.zero_grad()
             pred = self.model.forward(*batch[:-1])
@@ -109,7 +120,7 @@ class Trainer(object):
         # Where Xs are features, Y is the outcome
         self._iteration = 0
         self.optimizer.zero_grad()
-        for batch in chunks(self.batchsize, *args):
+        for batch in chunks(self.batchsize, *args, cuda=self.cuda):
             target = batch[-1]
             pred = self.model.forward(*batch[:-1])
             loss = self.model.loss(pred, target)
@@ -146,7 +157,7 @@ class Trainer(object):
             if key in concat.columns:
                 del concat[key]
         line = (concat.tail(1)
-                      .applymap("{0:1.4f}".format)
+                      .applymap("{0:1.2e}".format)
                       .to_string(header=header))
         print(line)
 

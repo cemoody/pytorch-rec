@@ -1,14 +1,21 @@
-from random import shuffle
+import random
+from sklearn.utils import shuffle
 
 from torch.utils.data import DataLoader
+from torch.utils.data.dataloader import pin_memory_batch
 
 
 class RangeLoader(DataLoader):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         batch_ranges = self.gen_batch_ranges()
+        random.shuffle(batch_ranges)
         if kwargs.get('shuffle', True):
-            shuffle(batch_ranges)
+            dataset = args[0]
+            if dataset.y is not None:
+                *dataset.X, dataset.y = shuffle(*dataset.X, dataset.y)
+            else:
+                dataset.X = shuffle(*dataset.X)
         self.batch_ranges = batch_ranges
 
     def __iter__(self):
@@ -29,8 +36,8 @@ class RangeLoader(DataLoader):
             stop = min(imax, stop)
             ranges.append((start, stop))
             start = stop
-        ranges.append((stop, imax))
-        assert ranges[-1][-1] == imax
+        if stop < imax:
+            ranges.append((stop, imax))
         return ranges
 
     def prep(self, start, stop):
@@ -39,4 +46,3 @@ class RangeLoader(DataLoader):
         if self.pin_memory:
             batch = pin_memory_batch(batch)
         return batch
-

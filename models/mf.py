@@ -25,7 +25,10 @@ class MF(nn.Module):
         return logodds
 
     def loss(self, prediction, target):
-        n_batches = self.n_obs * 1.0 / target.size()[0]
-        llh = self.lossf(prediction, target)
-        reg = (self.embed_user.prior() + self.embed_item.prior()) / n_batches
-        return llh + reg
+        # average likelihood loss per example
+        ex_llh = self.lossf(prediction, target)
+        # regularization penalty summed over whole model
+        epoch_reg = (self.embed_user.prior() + self.embed_item.prior())
+        # penalty should be computer for a single example
+        ex_reg = epoch_reg * 1.0 / self.n_obs
+        return ex_llh + ex_reg

@@ -14,7 +14,7 @@ from models.mfpoly2 import MFPoly2
 
 
 dim = 32
-window = 500
+window = 50
 n_epochs = 40
 batchsize = 4096 * 8
 model_type = 'MFPoly2'
@@ -73,8 +73,10 @@ elif model_type == 'MFGAN':
     test_args = (user, item, test_scor)
     window = 50
 
+
+model = model.cuda()
 # optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.0)
-optimizer = optim.Adam(model.parameters(), lr=1e-2)
+optimizer = optim.Adam(model.parameters(), lr=1e-4)
 # optimizer = optim.Adagrad(model.parameters(), lr=learning_rate)
 
 # Reload model if desired
@@ -82,8 +84,8 @@ if os.path.exists(fn):
     print(f"Loading from {fn}")
     model.load_state_dict(torch.load(fn))
 t = Trainer(model, optimizer, batchsize=batchsize, clip=1,
-            callbacks=callbacks, seed=seed, print_every=1,
-            window=window)
+            callbacks=callbacks, seed=seed, print_every=25,
+            window=window, cuda=True)
 for epoch in range(n_epochs):
     model.run_disc = True
     model.train(True)

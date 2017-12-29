@@ -5,3 +5,4 @@ scipy
 pyhive
 requests
 skorch
+scikit-optimize

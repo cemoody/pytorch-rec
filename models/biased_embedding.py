@@ -15,6 +15,8 @@ class BiasedEmbedding(nn.Module):
         self.n_dim = n_dim
         self.lv = lv
         self.lb = lb
+        self.vect.weight.data.normal_(0, 1.0 / n_dim)
+        self.bias.weight.data.normal_(0, 1.0 / n_dim)
 
     def __call__(self, index):
         off_vect = self.off_vect.expand(len(index), self.n_dim).squeeze()

@@ -4,7 +4,9 @@ import numpy as np
 import torch.optim as optim
 from skorch.net import NeuralNetRegressor
 from sklearn.utils import shuffle
+from skorch.dataset import CVSplit
 import sklearn.metrics
+import torch.nn as nn
 
 from models.mf import MF
 from models.fm import FM
@@ -16,10 +18,11 @@ from utils.rangeloader import RangeLoader
 dim = 32
 window = 500
 n_epochs = 40
-batchsize = 4096 * 8
+batch_size = 2048
 model_type = 'MFPoly2'
-learning_rate = 1e-3
 fn = model_type + '_checkpoint'
+train_split = CVSplit(10)
+parallel = False
 
 
 n_item = np.load('data/full.npz')['n_item'].tolist()
@@ -47,12 +50,13 @@ def features(feat, scor, include_frame=False):
 
 
 if model_type == 'MF':
-    model = MF(n_user, n_item, dim, n_obs, luv=1e-3,
-               lub=1e-3, liv=1e-3, lib=1e-3)
+    model = MF(n_user, n_item, dim, n_obs, luv=1,
+               lub=1, liv=1, lib=1)
     train_x, train_y = features(train_feat, train_scor)
     test_x, test_y = features(test_feat, test_scor)
 elif model_type == 'MFPoly2':
-    model = MFPoly2(n_user, n_item, dim, n_obs)
+    model = MFPoly2(n_user, n_item, dim, n_obs,
+                    luv=1e2, lub=1e2, liv=1e2, lib=1e2)
     train_x, train_y = features(train_feat, train_scor, include_frame=True)
     test_x, test_y = features(test_feat, test_scor, include_frame=True)
 elif model_type == 'FM':
@@ -67,28 +71,44 @@ elif model_type == 'VMF':
     test_x, test_y = features(test_feat, test_scor)
 
 
+if parallel:
+    model = nn.DataParallel(model)
+
+
 def criterion(**kwargs):
     def wrapper(prediction, target):
-        return model.loss(prediction, target)
+        if parallel:
+            return model.module.loss(prediction, target)
+        else:
+            return model.loss(prediction, target)
     return wrapper
 
+if False:
+    # If train_split is defined, then the model will handle cross validation
+    # and we'll merge train & test now and split it again later
+    train_x = [np.concatenate((tx, vx)) for (tx, vx) in zip(train_x, test_x)]
+    train_y = np.concatenate((train_y, test_y))
 
-net = NeuralNetRegressor(model, max_epochs=100, batch_size=4096 * 4,
-                         criterion=criterion, optimizer=optim.Adagrad,
-                         optimizer__lr=1e-0,
-                         verbose=1, use_cuda=True,
-                         iterator_train=RangeLoader, train_split=None,
+
+score = 'neg_mean_squared_error'
+callbacks = [skorch.callbacks.EpochScoring(score, name='mse_valid')]
+
+net = NeuralNetRegressor(model, max_epochs=200, batch_size=batch_size,
+                         criterion=criterion, optimizer=optim.Adam,
+                         optimizer__lr=1e-3, callbacks=callbacks,
+                         verbose=1, use_cuda=True, train_split=train_split,
+                         iterator_train=RangeLoader,
                          iterator_valid=RangeLoader)
+
 net.initialize()
-if os.path.exists('model_final.pt'):
-    print("Reloading from last checkpoint")
-    net.load_params('model_final.pt')
+# net.load_params('model_final.pt')
 net.fit(train_x, train_y)
-import pdb; pdb.set_trace()
+
+# Done w/ training, sabe * eval
+net.save_params('model_final.pt')
 pred_y = net.predict(test_x)
 valid_err = sklearn.metrics.mean_squared_error(test_y, pred_y)
 print("Final test error", valid_err)
-net.save_params('model_final.pt')
 
 
 # Output vectors
