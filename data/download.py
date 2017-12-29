@@ -1,4 +1,5 @@
 import pickle
+from io import StringIO
 import os.path
 from zipfile import ZipFile
 from functools import reduce
@@ -15,7 +16,9 @@ base = 'ml-10M100K'
 
 def process_movies():
     cols = ['movieId', 'title', 'genres']
-    movies = pd.read_csv(base + '/movies.dat', delimiter='::', names=cols)
+    fn = base + '/movies.dat'
+    raw = StringIO(open(fn, 'r').read().replace('::', '%'))
+    movies = pd.read_csv(raw, delimiter='%', names=cols)
     # Genres column is pipe-seperated
     sets = (movies.genres
                   .apply(lambda x: set(x.split('|')))
@@ -52,7 +55,9 @@ def process_ratings():
 
     # First col is user, 2nd is movie id, 3rd is rating, 4th timestamp
     cols = ['userId', 'movieId', 'rating', 'timestamp']
-    ratings = pd.read_csv(base + '/ratings.dat', delimiter='::', names=cols)
+    fn = base + '/ratings.dat'
+    raw = StringIO(open(fn, 'r').read().replace('::', ':'))
+    ratings = pd.read_csv(raw, delimiter=':', names=cols)
     movies, genr_cols = process_movies()
     ratings = ratings.merge(movies, on='movieId')
     ratings['movieId_dense'] = pd.Categorical(ratings.movieId).codes

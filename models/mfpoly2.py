@@ -19,10 +19,14 @@ class MFPoly2(nn.Module):
         # effectively fitting a quadratic polynomial to the frame number
         # to a scalar log odds (dim=1)
         self.frame = nn.Linear(2, 1)
+        self.frame.weight.data.normal_(0, 1e-6)
+        self.frame.bias.data.normal_(0, 1e-6)
         # This has two parameters that multiply and bias the log odds
         # this is degenerate with many other parameters, but seems
         # to accelerate optimization
         self.tune = nn.Linear(1, 1)
+        self.tune.weight.data.normal_(1, 1e-6)
+        self.tune.bias.data.normal_(0, 1e-6)
         self.n_obs = n_obs
         self.lossf = loss()
 
@@ -35,8 +39,8 @@ class MFPoly2(nn.Module):
         fv = f.view(len(u), 1)
         frame_effect = self.frame(torch.cat([fv, fv**2], dim=1)).squeeze()
         logodds = (bias + bi + bu + intx + frame_effect)
-        return self.tune(logodds.squeeze().unsqueeze(1)).squeeze()
-        # return logodds.squeeze()
+        # return self.tune(logodds.unsqueeze(1)).squeeze()
+        return logodds.squeeze()
 
     def loss(self, prediction, target):
         # average likelihood loss per example

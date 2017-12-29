@@ -8,10 +8,10 @@ class BiasedEmbedding(nn.Module):
         super(BiasedEmbedding, self).__init__()
         self.vect = nn.Embedding(n_feat, n_dim)
         self.bias = nn.Embedding(n_feat, 1)
-        self.off_vect = Parameter(torch.ones(1, n_dim))
+        self.off_vect = Parameter(torch.zeros(1, n_dim))
         self.mul_vect = Parameter(torch.ones(1, n_dim))
-        self.off_bias = Parameter(torch.ones(1, 1))
-        self.mul_bias = Parameter(torch.ones(1, 1))
+        self.off_bias = Parameter(torch.zeros(1))
+        self.mul_bias = Parameter(torch.ones(1))
         self.n_dim = n_dim
         self.lv = lv
         self.lb = lb

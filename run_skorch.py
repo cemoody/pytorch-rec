@@ -1,3 +1,5 @@
+import torch
+import pickle
 import skorch
 import os.path
 import numpy as np
@@ -7,6 +9,8 @@ from sklearn.utils import shuffle
 from skorch.dataset import CVSplit
 import sklearn.metrics
 import torch.nn as nn
+from skopt import gp_minimize
+from skopt.space import Real, Categorical, Integer
 
 from models.mf import MF
 from models.fm import FM
@@ -15,14 +19,15 @@ from models.vmf import VMF
 from utils.rangeloader import RangeLoader
 
 
-dim = 32
 window = 500
-n_epochs = 40
-batch_size = 2048
+n_epochs = 41
+dim = 32
+batch_size = 2048 * 4
 model_type = 'MFPoly2'
 fn = model_type + '_checkpoint'
 train_split = CVSplit(10)
 parallel = False
+torch.cuda.set_device(int(os.getenv('GPU')))
 
 
 n_item = np.load('data/full.npz')['n_item'].tolist()
@@ -49,71 +54,89 @@ def features(feat, scor, include_frame=False):
     return x, y
 
 
-if model_type == 'MF':
-    model = MF(n_user, n_item, dim, n_obs, luv=1,
-               lub=1, liv=1, lib=1)
-    train_x, train_y = features(train_feat, train_scor)
-    test_x, test_y = features(test_feat, test_scor)
-elif model_type == 'MFPoly2':
-    model = MFPoly2(n_user, n_item, dim, n_obs,
-                    luv=1e2, lub=1e2, liv=1e2, lib=1e2)
-    train_x, train_y = features(train_feat, train_scor, include_frame=True)
-    test_x, test_y = features(test_feat, test_scor, include_frame=True)
-elif model_type == 'FM':
-    n_feat = n_user + n_item + n_genr + 1
-    model = FM(n_feat, dim, n_obs, lb=1e-3, lv=1e-3)
-    train_x, train_y = features(train_feat, train_scor)
-    test_x, test_y = features(test_feat, test_scor)
-elif model_type == 'VMF':
-    model = VMF(n_user, n_item, dim, n_obs, luv=1e-3,
-                lub=1e-3, liv=1e-3, lib=1e-3)
-    train_x, train_y = features(train_feat, train_scor)
-    test_x, test_y = features(test_feat, test_scor)
+def make_model(model_type, luv, lub, liv, lib, dim):
+    dim = int(dim)
+    if model_type == 'MF':
+        model = MF(n_user, n_item, dim, n_obs,
+                   luv=luv, lub=lub, liv=liv, lib=lib)
+        train_x, train_y = features(train_feat, train_scor)
+        test_x, test_y = features(test_feat, test_scor)
+    elif model_type == 'MFPoly2':
+        model = MFPoly2(n_user, n_item, dim, n_obs,
+                        luv=luv, lub=lub, liv=liv, lib=lib)
+        train_x, train_y = features(train_feat, train_scor, include_frame=True)
+        test_x, test_y = features(test_feat, test_scor, include_frame=True)
+    elif model_type == 'FM':
+        n_feat = n_user + n_item + n_genr + 1
+        model = FM(n_feat, dim, n_obs, lb=lub, lv=luv)
+        train_x, train_y = features(train_feat, train_scor)
+        test_x, test_y = features(test_feat, test_scor)
+    elif model_type == 'VMF':
+        model = VMF(n_user, n_item, dim, n_obs,
+                    luv=luv, lub=lub, liv=liv, lib=lib)
+        train_x, train_y = features(train_feat, train_scor)
+        test_x, test_y = features(test_feat, test_scor)
+    if parallel:
+        model = nn.DataParallel(model)
+    return model, train_x, train_y, test_x, test_y
 
 
-if parallel:
-    model = nn.DataParallel(model)
+def save(input, err):
+    if os.path.exists('log'):
+        log = pickle.load(open('log', 'rb'))
+    else:
+        log = dict(x0=[], y0=[])
+    log['x0'].append(input)
+    log['y0'].append(err)
+    pickle.dump(log, open('log', 'wb'))
 
 
-def criterion(**kwargs):
-    def wrapper(prediction, target):
-        if parallel:
-            return model.module.loss(prediction, target)
-        else:
-            return model.loss(prediction, target)
-    return wrapper
+def func(input):
+    model_type, luv, lub, liv, lib, dim, lr = input
+    print(input)
+    score = 'neg_mean_squared_error'
+    callbacks = [skorch.callbacks.EpochScoring(score, name='mse_valid')]
+    model, tx, ty, vx, vy = make_model(model_type, luv, lub, liv, lib, dim)
 
-if False:
-    # If train_split is defined, then the model will handle cross validation
-    # and we'll merge train & test now and split it again later
-    train_x = [np.concatenate((tx, vx)) for (tx, vx) in zip(train_x, test_x)]
-    train_y = np.concatenate((train_y, test_y))
+    def criterion(**kwargs):
+        def wrapper(prediction, target):
+            if parallel:
+                return model.module.loss(prediction, target)
+            else:
+                return model.loss(prediction, target)
+        return wrapper
 
+    net = NeuralNetRegressor(model, max_epochs=200, batch_size=batch_size,
+                             criterion=criterion, optimizer=optim.Adam,
+                             optimizer__lr=lr, callbacks=callbacks,
+                             verbose=1, use_cuda=True, train_split=train_split,
+                             iterator_train=RangeLoader,
+                             iterator_valid=RangeLoader)
 
-score = 'neg_mean_squared_error'
-callbacks = [skorch.callbacks.EpochScoring(score, name='mse_valid')]
+    net.initialize()
+    net.fit(tx, ty)
 
-net = NeuralNetRegressor(model, max_epochs=200, batch_size=batch_size,
-                         criterion=criterion, optimizer=optim.Adam,
-                         optimizer__lr=1e-3, callbacks=callbacks,
-                         verbose=1, use_cuda=True, train_split=train_split,
-                         iterator_train=RangeLoader,
-                         iterator_valid=RangeLoader)
-
-net.initialize()
-# net.load_params('model_final.pt')
-net.fit(train_x, train_y)
-
-# Done w/ training, sabe * eval
-net.save_params('model_final.pt')
-pred_y = net.predict(test_x)
-valid_err = sklearn.metrics.mean_squared_error(test_y, pred_y)
-print("Final test error", valid_err)
+    # Done w/ training, sabe * eval
+    # net.save_params('model_final.pt')
+    py = net.predict(vx)
+    valid_err = sklearn.metrics.mean_squared_error(vy, py)
+    print("Final test error", valid_err)
+    save(input, valid_err)
+    return valid_err
 
 
-# Output vectors
-model = model.cpu()
-np.savez("model", user_bas=model.embed_user.bias.weight.data.numpy(),
-         user_vec=model.embed_user.vect.weight.data.numpy(),
-         item_bas=model.embed_item.bias.weight.data.numpy(),
-         item_vec=model.embed_item.vect.weight.data.numpy())
+space = [Categorical(['MFPoly2']),  #, 'MFPoly2', 'FM', 'VMF']),  # model_type
+         Real(10**-6, 10**2, 'log-uniform'),  # luv
+         Real(10**-6, 10**2, 'log-uniform'),  # lub
+         Real(10**-6, 10**2, 'log-uniform'),  # liv
+         Real(10**-6, 10**2, 'log-uniform'),  # lib
+         Integer(10, 100),                    # dim
+         Real(10**-5, 10**-2, 'log-uniform'), # lr
+        ]
+
+x0, y0 = None, None
+if os.path.exists('log'):
+    log = pickle.load(open('log', 'rb'))
+    x0, y0 = log['x0'], log['y0']
+    print(x0, y0)
+res = gp_minimize(func, space, verbose=True, x0=x0, y0=y0)

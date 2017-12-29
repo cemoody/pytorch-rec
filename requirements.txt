@@ -6,3 +6,4 @@ pyhive
 requests
 skorch
 scikit-optimize
+spotlight
