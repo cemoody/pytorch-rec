@@ -21,6 +21,7 @@ from utils.rangeloader import RangeLoader
 
 window = 500
 n_epochs = 41
+max_loops = 40
 dim = 32
 batch_size = 2048 * 4
 model_type = 'MFPoly2'
@@ -106,15 +107,24 @@ def func(input):
                 return model.loss(prediction, target)
         return wrapper
 
-    net = NeuralNetRegressor(model, max_epochs=200, batch_size=batch_size,
+    net = NeuralNetRegressor(model, max_epochs=5, batch_size=batch_size,
                              criterion=criterion, optimizer=optim.Adam,
                              optimizer__lr=lr, callbacks=callbacks,
                              verbose=1, use_cuda=True, train_split=train_split,
+                             warm_start=True,
                              iterator_train=RangeLoader,
                              iterator_valid=RangeLoader)
 
     net.initialize()
-    net.fit(tx, ty)
+    last = np.inf
+    for _ in range(max_loops):
+        net.fit(tx, ty)
+        curr = np.mean(net.history[-1, 'batches', :, 'train_loss'])
+        frac = abs(curr - last) / curr
+        last = curr
+        if frac < 1e-3:
+            print("Threshold met, converged")
+            break
 
     # Done w/ training, sabe * eval
     # net.save_params('model_final.pt')

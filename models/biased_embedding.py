@@ -13,12 +13,15 @@ class BiasedEmbedding(nn.Module):
         self.off_bias = Parameter(torch.zeros(1))
         self.mul_bias = Parameter(torch.ones(1))
         self.n_dim = n_dim
+        self.n_feat = n_feat
         self.lv = lv
         self.lb = lb
         self.vect.weight.data.normal_(0, 1.0 / n_dim)
         self.bias.weight.data.normal_(0, 1.0 / n_dim)
 
     def __call__(self, index):
+        assert (index.max() < self.n_feat).all()
+        assert (index.min() >= 0).all()
         off_vect = self.off_vect.expand(len(index), self.n_dim).squeeze()
         off_bias = self.off_bias.expand(len(index), 1).squeeze()
         bias = off_bias + self.mul_bias * self.bias(index).squeeze()
