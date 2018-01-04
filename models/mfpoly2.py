@@ -18,6 +18,7 @@ class MFPoly2(nn.Module):
         # maps from a scalar (dim=2) of frame and frame^2
         # effectively fitting a quadratic polynomial to the frame number
         # to a scalar log odds (dim=1)
+        self.poly = nn.Linear(2, 1)
         self.frame_a = Parameter(torch.FloatTensor([1e-3]))
         self.frame_b = Parameter(torch.FloatTensor([1e-6]))
         self.frame_a0 = Parameter(torch.FloatTensor([1.0]))
@@ -33,14 +34,18 @@ class MFPoly2(nn.Module):
         self.lossf = loss()
 
     def forward(self, *input):
-        u, i, f = input[0]
+        if len(input) == 1:
+            u, i, f = input[0]
+        else:
+            u, i, f = input
+        u, i = u.squeeze(), i.squeeze()
         bias = self.glob_bias.expand(len(u), 1).squeeze()
         bu, vu = self.embed_user(u)
         bi, vi = self.embed_item(i)
         intx = (vu * vi).sum(dim=1)
-        fe1 = (self.frame_a * (f - self.frame_a0))
-        fe2 = (self.frame_b * (fe1 - self.frame_b0))
-        logodds = (bias + bi + bu + intx + fe2).squeeze()
+        frame = [f.unsqueeze(0), f.unsqueeze(0)**2.0]
+        effect = self.poly(torch.t(torch.log(torch.cat(frame)))).squeeze()
+        logodds = (bias + bi + bu + intx + effect).squeeze()
         return logodds
 
     def loss(self, prediction, target):

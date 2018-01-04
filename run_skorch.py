@@ -16,13 +16,12 @@ from models.mf import MF
 from models.fm import FM
 from models.mfpoly2 import MFPoly2
 from models.vmf import VMF
-from utils.rangeloader import RangeLoader
+from utils.rangeloader import RangeDataLoader
 
 
 window = 500
 n_epochs = 41
 max_loops = 40
-dim = 32
 batch_size = 2048 * 4
 model_type = 'MFPoly2'
 fn = model_type + '_checkpoint'
@@ -56,7 +55,7 @@ def features(feat, scor, include_frame=False):
 
 
 def make_model(model_type, luv, lub, liv, lib, dim):
-    dim = int(dim)
+    dim = 8 * int(dim)
     if model_type == 'MF':
         model = MF(n_user, n_item, dim, n_obs,
                    luv=luv, lub=lub, liv=liv, lib=lib)
@@ -93,27 +92,24 @@ def save(input, err):
 
 
 def func(input):
-    model_type, luv, lub, liv, lib, dim, lr = input
+    lr = 1e-3
+    luv, lub, liv, lib = 1.0, 1.0, 1.0, 1.0
+    model_type, wd, dim = input
     print(input)
     score = 'neg_mean_squared_error'
     callbacks = [skorch.callbacks.EpochScoring(score, name='mse_valid')]
     model, tx, ty, vx, vy = make_model(model_type, luv, lub, liv, lib, dim)
 
-    def criterion(**kwargs):
-        def wrapper(prediction, target):
-            if parallel:
-                return model.module.loss(prediction, target)
-            else:
-                return model.loss(prediction, target)
-        return wrapper
-
     net = NeuralNetRegressor(model, max_epochs=5, batch_size=batch_size,
-                             criterion=criterion, optimizer=optim.Adam,
+                             criterion=torch.nn.MSELoss, optimizer=optim.Adam,
+                             optimizer__weight_decay=wd,
                              optimizer__lr=lr, callbacks=callbacks,
                              verbose=1, use_cuda=True, train_split=train_split,
                              warm_start=True,
-                             iterator_train=RangeLoader,
-                             iterator_valid=RangeLoader)
+                             iterator_train=RangeDataLoader,
+                             iterator_valid=RangeDataLoader,
+                             iterator_train__shuffle=True,
+                             iterator_valid__shuffle=True)
 
     net.initialize()
     last = np.inf
@@ -136,17 +132,13 @@ def func(input):
 
 
 space = [Categorical(['MFPoly2']),  #, 'MFPoly2', 'FM', 'VMF']),  # model_type
-         Real(10**-6, 10**2, 'log-uniform'),  # luv
-         Real(10**-6, 10**2, 'log-uniform'),  # lub
-         Real(10**-6, 10**2, 'log-uniform'),  # liv
-         Real(10**-6, 10**2, 'log-uniform'),  # lib
-         Integer(10, 100),                    # dim
-         Real(10**-5, 10**-2, 'log-uniform'), # lr
+         Real(10**-6, 10**-1, 'log-uniform'),  # wd
+         Integer(1, 12),                    # dim
         ]
 
 x0, y0 = None, None
-if os.path.exists('log'):
-    log = pickle.load(open('log', 'rb'))
-    x0, y0 = log['x0'], log['y0']
-    print(x0, y0)
+# if os.path.exists('log'):
+#     log = pickle.load(open('log', 'rb'))
+#     x0, y0 = log['x0'], log['y0']
+#     print(x0, y0)
 res = gp_minimize(func, space, verbose=True, x0=x0, y0=y0)

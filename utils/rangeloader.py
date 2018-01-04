@@ -1,48 +1,40 @@
 import random
 from sklearn.utils import shuffle
 
-from torch.utils.data import DataLoader
+from torch.utils.data.dataloader import DataLoader
+from torch.utils.data.dataloader import DataLoaderIter
 from torch.utils.data.dataloader import pin_memory_batch
 
 
-class RangeLoader(DataLoader):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        batch_ranges = self.gen_batch_ranges()
-        random.shuffle(batch_ranges)
-        if kwargs.get('shuffle', True):
-            dataset = args[0]
-            if dataset.y is not None:
-                *dataset.X, dataset.y = shuffle(*dataset.X, dataset.y)
-            else:
-                dataset.X = shuffle(*dataset.X)
-        self.batch_ranges = batch_ranges
-
-    def __iter__(self):
-        return self
-
+class RangeDataLoaderIter(DataLoaderIter):
     def __next__(self):
-        if len(self.batch_ranges) == 0:
+        if self.num_workers == 0:  # same-process loading
+            indices = next(self.sample_iter)  # may raise StopIteration
+            batch = self.dataset[indices]
+            if self.pin_memory:
+                batch = pin_memory_batch(batch)
+            return batch
+
+        # check if the next sample has already been generated
+        if self.rcvd_idx in self.reorder_dict:
+            batch = self.reorder_dict.pop(self.rcvd_idx)
+            return self._process_next_batch(batch)
+
+        if self.batches_outstanding == 0:
+            self._shutdown_workers()
             raise StopIteration
-        start, stop = self.batch_ranges.pop()
-        return self.prep(start, stop)
 
-    def gen_batch_ranges(self):
-        imin = 0
-        imax = len(self.dataset)
-        ranges = []
-        start = 0
-        for stop in range(self.batch_size, imax, self.batch_size):
-            stop = min(imax, stop)
-            ranges.append((start, stop))
-            start = stop
-        if stop < imax:
-            ranges.append((stop, imax))
-        return ranges
+        while True:
+            assert (not self.shutdown and self.batches_outstanding > 0)
+            idx, batch = self._get_batch()
+            self.batches_outstanding -= 1
+            if idx != self.rcvd_idx:
+                # store out-of-order samples
+                self.reorder_dict[idx] = batch
+                continue
+            return self._process_next_batch(batch)
 
-    def prep(self, start, stop):
-        batch = self.dataset[start: stop]
-        # test = default_collate(batch)
-        if self.pin_memory:
-            batch = pin_memory_batch(batch)
-        return batch
+
+class RangeDataLoader(DataLoader):
+    def __iter__(self):
+        return RangeDataLoaderIter(self)

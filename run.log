@@ -1,0 +1,2 @@
+MFPoly2
+    r01 all reg=1e0 best valid mse 1.17 @ epoch 10, ended at 1.7 @ epoch 30

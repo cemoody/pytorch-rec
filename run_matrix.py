@@ -13,10 +13,10 @@ from models.mfgan import MFGAN
 from models.mfpoly2 import MFPoly2
 
 
-dim = 32
+dim = 64
 window = 50
-n_epochs = 40
-batchsize = 4096 * 8
+n_epochs = 400
+batchsize = 4096
 model_type = 'MFPoly2'
 learning_rate = 1e-3
 fn = model_type + '_checkpoint'
@@ -46,8 +46,8 @@ if model_type == 'MF':
     user, item = test_feat[:, 0], test_feat[:, 1] - n_user
     test_args = (user, item, test_scor)
 elif model_type == 'MFPoly2':
-    model = MFPoly2(n_user, n_item, dim, n_obs, luv=1e-3,
-                    lub=1e-3, liv=1e-3, lib=1e-3)
+    model = MFPoly2(n_user, n_item, dim, n_obs, luv=1e-0,
+                    lub=1e-0, liv=1e-0, lib=1e-0)
     # The first two columns give user and item indices
     user, item = train_feat[:, 0], train_feat[:, 1] - n_user
     frame = train_feat[:, -1].astype('float')
