@@ -1,7 +1,7 @@
-import numpy as np
-import torch
+import os
 import os.path
-
+import torch
+import numpy as np
 import torch.optim as optim
 
 from utils.trainer import Trainer
@@ -20,6 +20,7 @@ batchsize = 4096
 model_type = 'MFPoly2'
 learning_rate = 1e-3
 fn = model_type + '_checkpoint'
+torch.cuda.set_device(int(os.getenv('GPU')))
 
 
 n_item = np.load('data/full.npz')['n_item'].tolist()
@@ -46,8 +47,8 @@ if model_type == 'MF':
     user, item = test_feat[:, 0], test_feat[:, 1] - n_user
     test_args = (user, item, test_scor)
 elif model_type == 'MFPoly2':
-    model = MFPoly2(n_user, n_item, dim, n_obs, luv=1e-0,
-                    lub=1e-0, liv=1e-0, lib=1e-0)
+    model = MFPoly2(n_user, n_item, dim, n_obs, luv=3e+3,
+                    lub=3e+3, liv=3e+3, lib=3e+3)
     # The first two columns give user and item indices
     user, item = train_feat[:, 0], train_feat[:, 1] - n_user
     frame = train_feat[:, -1].astype('float')

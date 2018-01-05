@@ -1,2 +1,8 @@
 MFPoly2
-    r01 all reg=1e0 best valid mse 1.17 @ epoch 10, ended at 1.7 @ epoch 30
+    r01 all reg=1e0 best valid mse 0.81940 @ epoch 41, then starts to climb to 0.835 at epoch 50, then killed
+    r01 all reg=1e1 best valid mse 0.81591 @ epoch 37, then starts to climb to 0.842 at epoch 49, then killed
+    r01 all reg=1e2 best valid mse 0.8089 @ epoch 35, then starts to climb
+    r01 all reg=1e5 best valid mse 0.8585 @ epoch 400, slowly still falling
+    r01 all reg=1e3 best valid mse 0.7962 @ epoch 59,  then starts to climb to 0.80 by 69
+    r01 all reg=1e4 best valid mse 0.8103 @ epoch 400, slowly still falling
+    r01 all reg=3e3 best valid mse 0.7972 @ epoch 400, converged
