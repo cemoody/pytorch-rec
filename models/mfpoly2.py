@@ -33,11 +33,7 @@ class MFPoly2(nn.Module):
         self.n_obs = n_obs
         self.lossf = loss()
 
-    def forward(self, *input):
-        if len(input) == 1:
-            u, i, f = input[0]
-        else:
-            u, i, f = input
+    def forward(self, u, i, f):
         u, i = u.squeeze(), i.squeeze()
         bias = self.glob_bias.expand(len(u), 1).squeeze()
         bu, vu = self.embed_user(u)

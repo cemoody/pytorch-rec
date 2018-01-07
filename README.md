@@ -19,6 +19,7 @@ Included factorization models:
   4. MFPoly2. Adds a 2nd order polynomial on age.
   5. SparseMF. Emphasizes interpretable topics and vectors
   6. MFPoincare. Matrix factorization in Poincare (instead of Euclidean) space
+  7. MultiOutput. 
 
 Implicit MF:
   8. Implicit LSTM
@@ -28,3 +29,7 @@ Included graph autoencoder models:
     1. SimpleAE
     2. LSTMAE
     3. ActiveAE
+
+Extras:
+    Poisson likelihood
+    Multi-output models

@@ -20,7 +20,7 @@ def factorization_machine(v, w=None):
     # Uses Rendle's trick for computing pairs of features in linear time
     batchsize, n_features, n_dim = v.size()
     if w is None:
-        w = Variable(torch.ones(v.size()))
+        w = Variable(torch.ones(v.size()).type(type(v.data)))
     else:
         w = w.expand(batchsize, n_features, n_dim)
     t0 = (v * w).sum(dim=1)**2.0
@@ -39,16 +39,23 @@ class FM(nn.Module):
         self.lv = lv
         self.lossf = loss()
 
-    def forward(self, input):
-        idx = input
+    def forward(self, idx):
         biases = index_into(self.embed_feat.bias.weight, idx).squeeze()
         vectrs = index_into(self.embed_feat.vect.weight, idx)
-        vector = factorization_machine(vectrs).squeeze()
-        logodds = biases.sum(dim=1) + vector.sum(dim=1)
+        active = (idx > 0).type(type(biases.data))
+        biases = (biases * active).sum(dim=1)
+        vector = factorization_machine(vectrs * active.unsqueeze(2)).sum(dim=1)
+        logodds = biases + vector
         return logodds
 
     def loss(self, prediction, target):
-        n_batches = self.n_obs * 1.0 / target.size()[0]
-        llh = self.lossf(prediction, target)
-        reg = self.embed_feat.prior() / n_batches
-        return llh + reg
+        # average likelihood loss per example
+        ex_llh = self.lossf(prediction, target)
+        if self.training:
+            # regularization penalty summed over whole model
+            epoch_reg = self.embed_feat.prior()
+            # penalty should be computer for a single example
+            ex_reg = epoch_reg * 1.0 / self.n_obs
+        else:
+            ex_reg = 0.0
+        return ex_llh + ex_reg

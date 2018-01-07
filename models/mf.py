@@ -21,8 +21,7 @@ class MF(nn.Module):
         self.n_obs = n_obs
         self.lossf = loss()
 
-    def forward(self, *input):
-        u, i = input
+    def forward(self, u, i):
         u, i = u.squeeze(), i.squeeze()
         bias = self.glob_bias.expand(len(u), 1).squeeze()
         bu, vu = self.embed_user(u)

@@ -8,6 +8,7 @@ from utils.trainer import Trainer
 from utils.callbacks import rms_callback
 
 from models.mf import MF
+from models.fm import FM
 from models.mfdeep1 import MFDeep1
 from models.mfgan import MFGAN
 from models.mfpoly2 import MFPoly2
@@ -17,7 +18,7 @@ dim = 64
 window = 50
 n_epochs = 400
 batchsize = 4096
-model_type = 'MFPoly2'
+model_type = 'FM'
 learning_rate = 1e-3
 fn = model_type + '_checkpoint'
 torch.cuda.set_device(int(os.getenv('GPU')))
@@ -34,18 +35,23 @@ train_feat = train['train_feat'].astype('int64')
 train_scor = train['train_scor'].astype('float32')
 test_feat = test['test_feat'].astype('int64')
 test_scor = test['test_scor'].astype('float32')
+n_feat = int(max(train_feat.max(), test_feat.max()) + 1)
 
 
 callbacks = {'rms': rms_callback}
 
 if model_type == 'MF':
-    model = MF(n_user, n_item, dim, n_obs, luv=1e-3,
-               lub=1e-3, liv=1e-3, lib=1e-3)
+    model = MF(n_user, n_item, dim, n_obs, luv=1e+4,
+               lub=1e+4, liv=1e+4, lib=1e+4)
     # The first two columns give user and item indices
     user, item = train_feat[:, 0], train_feat[:, 1] - n_user
     train_args = (user, item, train_scor)
     user, item = test_feat[:, 0], test_feat[:, 1] - n_user
     test_args = (user, item, test_scor)
+elif model_type == 'FM':
+    model = FM(n_feat, dim, n_obs, lv=1e+0, lb=1e+0)
+    train_args = (train_feat, train_scor)
+    test_args = (test_feat, test_scor)
 elif model_type == 'MFPoly2':
     model = MFPoly2(n_user, n_item, dim, n_obs, luv=3e+3,
                     lub=3e+3, liv=3e+3, lib=3e+3)

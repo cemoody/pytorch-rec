@@ -1,3 +1,5 @@
+MF
+    r01 all reg=3e3 best valid mse @ 
 MFPoly2
     r01 all reg=1e0 best valid mse 0.81940 @ epoch 41, then starts to climb to 0.835 at epoch 50, then killed
     r01 all reg=1e1 best valid mse 0.81591 @ epoch 37, then starts to climb to 0.842 at epoch 49, then killed
