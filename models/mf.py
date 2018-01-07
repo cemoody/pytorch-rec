@@ -12,12 +12,6 @@ class MF(nn.Module):
         self.embed_user = BiasedEmbedding(n_users, n_dim, lb=lub, lv=luv)
         self.embed_item = BiasedEmbedding(n_items, n_dim, lb=lib, lv=liv)
         self.glob_bias = Parameter(torch.FloatTensor([0.01]))
-        # This has two parameters that multiply and bias the log odds
-        # this is degenerate with many other parameters, but seems
-        # to accelerate optimization
-        self.tune = nn.Linear(1, 1)
-        self.tune.weight.data.normal_(1, 1e-6)
-        self.tune.bias.data.normal_(0, 1e-6)
         self.n_obs = n_obs
         self.lossf = loss()
 

@@ -19,17 +19,6 @@ class MFPoly2(nn.Module):
         # effectively fitting a quadratic polynomial to the frame number
         # to a scalar log odds (dim=1)
         self.poly = nn.Linear(2, 1)
-        self.frame_a = Parameter(torch.FloatTensor([1e-3]))
-        self.frame_b = Parameter(torch.FloatTensor([1e-6]))
-        self.frame_a0 = Parameter(torch.FloatTensor([1.0]))
-        self.frame_b0 = Parameter(torch.FloatTensor([2.0]))
-        # self.frame.bias.data.normal_(0, 1e-9)
-        # This has two parameters that multiply and bias the log odds
-        # this is degenerate with many other parameters, but seems
-        # to accelerate optimization
-        self.tune = nn.Linear(1, 1)
-        self.tune.weight.data.normal_(1, 1e-6)
-        self.tune.bias.data.normal_(0, 1e-6)
         self.n_obs = n_obs
         self.lossf = loss()
 
