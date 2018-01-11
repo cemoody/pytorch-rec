@@ -9,19 +9,29 @@ from utils.callbacks import rms_callback
 
 from models.mf import MF
 from models.fm import FM
-from models.mfdeep1 import MFDeep1
-from models.mfgan import MFGAN
+from models.vfm import VFM
 from models.mfpoly2 import MFPoly2
+from models.gumbel_mf import GumbelMF
+from models.poincare_mf import PoincareMF
 
 
 dim = 64
 window = 50
 n_epochs = 400
 batchsize = 4096
-model_type = 'FM'
+model_type = 'PoincareMF'
 learning_rate = 1e-3
 fn = model_type + '_checkpoint'
 torch.cuda.set_device(int(os.getenv('GPU')))
+
+
+def scor_flag(scor, median=None):
+    flag = np.zeros_like(scor)
+    if median is None:
+        median = np.median(scor)
+    flag[scor > median] = 1.0
+    flag[scor < median] = -1.0
+    return flag, median
 
 
 n_item = np.load('data/full.npz')['n_item'].tolist()
@@ -33,12 +43,21 @@ train = np.load('data/loocv_train.npz')
 test = np.load('data/loocv_test.npz')
 train_feat = train['train_feat'].astype('int64')
 train_scor = train['train_scor'].astype('float32')
+train_scor_tri, median = scor_flag(train_scor)
 test_feat = test['test_feat'].astype('int64')
 test_scor = test['test_scor'].astype('float32')
+test_scor_tri, _ = scor_flag(test_scor, median)
 n_feat = int(max(train_feat.max(), test_feat.max()) + 1)
 
+# Create feature grouping for VFM
+feat_group = np.zeros(n_feat).astype('int64')
+# All user are group 0, items group 1, genre group 2
+feat_group[:n_user] = 0
+feat_group[n_user: n_user + n_item] = 1
+feat_group[n_user + n_item:] = 2
 
 callbacks = {'rms': rms_callback}
+optimizer = None
 
 if model_type == 'MF':
     model = MF(n_user, n_item, dim, n_obs, luv=1e+4,
@@ -50,47 +69,61 @@ if model_type == 'MF':
     test_args = (user, item, test_scor)
 elif model_type == 'FM':
     model = FM(n_feat, dim, n_obs, lv=1e+0, lb=1e+0)
-    train_args = (train_feat, train_scor)
-    test_args = (test_feat, test_scor)
+    user, item = train_feat[:, 0], train_feat[:, 1] - n_user
+    frame = train_feat[:, -1].astype('int')
+    train_args = (np.vstack((user, item, frame)).T, train_scor)
+    user, item = test_feat[:, 0], test_feat[:, 1] - n_user
+    frame = test_feat[:, -1].astype('int')
+    test_args = (np.vstack((user, item, frame)).T, test_scor)
+elif model_type == 'VFM':
+    model = VFM(n_feat, dim, n_obs, feat_group)
+    user, item = train_feat[:, 0], train_feat[:, 1] - n_user
+    frame = train_feat[:, -1].astype('int')
+    train_args = (np.vstack((user, item, frame)).T, train_scor)
+    user, item = test_feat[:, 0], test_feat[:, 1] - n_user
+    frame = test_feat[:, -1].astype('int')
+    test_args = (np.vstack((user, item, frame)).T, test_scor)
+    batchsize = 4096 * 4
+    learning_rate = 1e-2
 elif model_type == 'MFPoly2':
     model = MFPoly2(n_user, n_item, dim, n_obs, luv=3e+3,
                     lub=3e+3, liv=3e+3, lib=3e+3)
-    # The first two columns give user and item indices
     user, item = train_feat[:, 0], train_feat[:, 1] - n_user
     frame = train_feat[:, -1].astype('float')
     train_args = (user, item, frame, train_scor)
     user, item = test_feat[:, 0], test_feat[:, 1] - n_user
     frame = test_feat[:, -1].astype('float')
     test_args = (user, item, frame, test_scor)
-elif model_type == 'MFDeep1':
-    model = MFDeep1(n_user, n_item, dim, n_obs, luv=1e-3,
-                    lub=1e-3, liv=1e-3, lib=1e-3, lmat=1.0)
+if model_type == 'GumbelMF':
+    dim = 256
+    model = GumbelMF(n_user, n_item, dim, n_obs, luv=1e-2,
+                     lub=1e-2, liv=1e-2, lib=1e-2, tau=0.8)
     # The first two columns give user and item indices
     user, item = train_feat[:, 0], train_feat[:, 1] - n_user
     train_args = (user, item, train_scor)
     user, item = test_feat[:, 0], test_feat[:, 1] - n_user
     test_args = (user, item, test_scor)
-elif model_type == 'MFGAN':
-    model = MFGAN(n_user, n_item, dim, n_obs, luv=1.0,
-                  lub=1, liv=1, lib=1, lmat=1.0)
+if model_type == 'PoincareMF':
+    dim = 2
+    model = PoincareMF(n_user, n_item, dim, n_obs)
     # The first two columns give user and item indices
     user, item = train_feat[:, 0], train_feat[:, 1] - n_user
     train_args = (user, item, train_scor)
     user, item = test_feat[:, 0], test_feat[:, 1] - n_user
     test_args = (user, item, test_scor)
-    window = 50
+    # optimizer = optim.SGD(model.parameters(), lr=1e-2, momentum=0.9)
+    learning_rate = 1e-2
 
 
 model = model.cuda()
-# optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.0)
-optimizer = optim.Adam(model.parameters(), lr=1e-4)
-# optimizer = optim.Adagrad(model.parameters(), lr=learning_rate)
+if optimizer is None:
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
 # Reload model if desired
 if os.path.exists(fn):
     print(f"Loading from {fn}")
     model.load_state_dict(torch.load(fn))
-t = Trainer(model, optimizer, batchsize=batchsize, clip=1,
+t = Trainer(model, optimizer, batchsize=batchsize,
             callbacks=callbacks, seed=seed, print_every=25,
             window=window, cuda=True)
 for epoch in range(n_epochs):

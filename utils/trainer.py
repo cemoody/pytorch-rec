@@ -57,6 +57,7 @@ class Trainer(object):
 
     def fit(self, *args):
         # args is X1, X2,...Xn, Yn
+        self.model.train(True)
         self._iteration = 0
         rs = random.randint(0, 100000)
         args = shuffle(*args, random_state=rs)
@@ -87,6 +88,7 @@ class Trainer(object):
         self._epoch += 1
         self.previous_log.extend(self.log)
         self.log = []
+        self.model.train(False)
 
     def fit_sequence(self, inputs, labels, lengths):
         args = (inputs, labels, lengths)
@@ -118,6 +120,7 @@ class Trainer(object):
     def test(self, *args):
         # args is X1, X2...Xn, Y
         # Where Xs are features, Y is the outcome
+        self.model.train(False)
         self._iteration = 0
         self.optimizer.zero_grad()
         for batch in chunks(self.batchsize, *args, cuda=self.cuda):
@@ -134,6 +137,7 @@ class Trainer(object):
         self._iteration = 0
         self.previous_log.extend(self.log)
         self.log = []
+        self.model.train(True)
 
     def run_callbacks(self, batch, pred, **kwargs):
         vals = {name: cb(batch, self.model, pred)

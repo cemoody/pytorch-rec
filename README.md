@@ -14,16 +14,11 @@ Install steps
 
 Included factorization models:
   1. MF. A simple matrix factorization model with user and item biases + vectors
-  2. VMF.  + variational
   3. FM. A simple factorization machine model with user, item, and genre interactions
+  2. VFM.  + variational, lots of structure & hyperpriors
   4. MFPoly2. Adds a 2nd order polynomial on age.
-  5. SparseMF. Emphasizes interpretable topics and vectors
+  5. GumbleMF. Emphasizes interpretable topics and vectors
   6. MFPoincare. Matrix factorization in Poincare (instead of Euclidean) space
-  7. MultiOutput. 
-
-Implicit MF:
-  8. Implicit LSTM
-  9. Implicit + Explicit LSTM
 
 Included graph autoencoder models:
     1. SimpleAE

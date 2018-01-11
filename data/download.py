@@ -37,7 +37,6 @@ def process_movies():
         genr_cols.append(col)
 
     # Remove unused features
-    del movies['title']
     del movies['genres']
     return movies, genr_cols
 
@@ -145,6 +144,7 @@ def loocv(train_size=0.75):
     # Save everything
     np.savez('loocv_train', train_feat=train_feat, train_scor=train_scor)
     np.savez('loocv_test', test_feat=test_feat, test_scor=test_scor)
+    ratings.to_pickle('ratings.pd')
 
 
 def history():
